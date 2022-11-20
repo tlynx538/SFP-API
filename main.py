@@ -21,6 +21,26 @@ class AddProductItem(BaseModel):
     discount : float 
     price : float 
 
+class AddCart(BaseModel):
+    user_id : int 
+    item_id : int 
+    quantity : int 
+
+class ViewCart(BaseModel):
+    user_id : int
+
+class DeleteCart(BaseModel):
+    user_id : int 
+    item_id : int 
+
+class UpdateCart(BaseModel):
+    user_id : int 
+    item_id : int 
+    quantity : int    
+
+class CreateOrder(BaseModel):
+    user_id : int
+
 # defining for inventory route
 inventory_api_route = "/api/inventory/"
 
@@ -40,3 +60,29 @@ def add_product_item(prod: AddProductItem):
 @app.get(inventory_api_route+'delete/product/item/'+'{item_id}')
 def delete_product_item(item_id):
     return obj.DeleteItemFromProductInfo(item_id=item_id)
+
+@app.get(inventory_api_route+'delete/product/'+'{product_id}')
+def delete_product(product_id):
+    return obj.DeleteRowFromProductDetails(product_id=product_id)
+
+@app.post(inventory_api_route+'add/cart')
+def add_to_cart(cart: AddCart):
+    return obj.AddToCart(item_id=cart.item_id, user_id=cart.user_id, quantity= cart.quantity)
+
+@app.get(inventory_api_route+'view/cart')
+def view_cart(cart: ViewCart):
+    return obj.ViewCart(user_id=cart.user_id)
+
+@app.get(inventory_api_route+'delete/cart')
+def delete_item_cart(cart: DeleteCart):
+    return obj.DeleteItemFromCart(item_id=cart.item_id, user_id=cart.user_id)
+
+@app.post(inventory_api_route+'update/cart')
+def update_item_cart(cart: UpdateCart):
+    return obj.UpdateQuantityFromCartItem(item_id=cart.item_id, quantity=cart.quantity, user_id=cart.user_id)
+
+@app.post(inventory_api_route+'create/order')
+def create_order(order: CreateOrder):
+    return obj.CreateOrder(user_id=order.user_id)
+
+

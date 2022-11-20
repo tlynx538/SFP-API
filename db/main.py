@@ -1,4 +1,11 @@
+'''
+ TODO:
+    [Inventory, Cart and Orders]
+    1. Fix Exception Messages 
+'''
 import sqlalchemy as db 
+from datetime import datetime 
+
 class PurplePandaDB:
     error_message = {"status": "ERROR","message": "An Error Occured"}
     success_message = {"status": "OK","message": "Row Updated Successfully"}
@@ -9,6 +16,7 @@ class PurplePandaDB:
             self.metadata = db.MetaData()
         except:
             return {"status": "ERROR", "message": "Database Error has Occured."}
+
     # Functions for Product Details Table:
 
     # Not neccessary but useful during tests
@@ -42,10 +50,13 @@ class PurplePandaDB:
             print("All Details are Required, Please make sure to fill all arguments")
             return False 
         else:
-            # Check if Product Name already exists or no # bug 1
-            query = db.insert(product_details).values(product_name=product_name,product_desc=product_desc,product_gender=product_gender,product_category=product_category)
-            self.connection.execute(query)
-            return self.success_message
+            all_product_names = self.getAllProductName()
+            if(product_name not in all_product_names):
+                query = db.insert(product_details).values(product_name=product_name,product_desc=product_desc,product_gender=product_gender,product_category=product_category)
+                self.connection.execute(query)
+                return self.success_message
+            else:
+                return {"status": "ERROR", "message": "Product Already Exists"}
 
 
     def UpdateRowFromProductDetails(self,product_name=None,product_desc=None,product_gender=None,product_category=None,product_id=None):
@@ -85,7 +96,6 @@ class PurplePandaDB:
                 return True 
     
     # Product Info Page
-
     def SelectAllfromProductInfo(self):
         try:
             ResultSet = []
@@ -183,6 +193,70 @@ class PurplePandaDB:
             return ResultSet
         except: 
             return self.error_message
+    
+    def AddToCart(self,quantity,item_id,user_id=None):
+        # Check if quantity exists
+        # Reduce and Update the Quantity in product_info 
+        # Implement user table and add to condition
+        cart = self.getCart()
+        if(self.checkIfItemIDExists(item_id=item_id)):
+            query = db.insert(cart).values(quantity=quantity,item_id=item_id,user_id=user_id)
+            self.connection.execute(query)
+            return self.success_message
+        else:
+            return self.error_message
+
+    def ViewCart(self, user_id):
+        ResultSet = []
+        # check if user id exists
+        cart = self.getCart()
+        query = db.select([cart]).where(cart.c.user_id == user_id)
+        print(query)
+        results = self.connection.execute(query)
+        for row in results:
+            ResultSet.append(row._asdict())
+        return ResultSet 
+
+    def DeleteItemFromCart(self, item_id, user_id):
+        cart = self.getCart()
+        query = db.delete(cart).where((cart.c.user_id == user_id) & (cart.c.item_id == item_id))
+        self.connection.execute(query)
+        return self.success_message
+
+    def UpdateQuantityFromCartItem(self, quantity, user_id, item_id):
+        cart = self.getCart()
+        query = db.update(cart).values(quantity = quantity).where((cart.c.user_id == user_id) & (cart.c.item_id == item_id))
+        self.connection.execute(query)
+        return self.success_message
+
+    # Orders 
+    def CreateOrder(self,user_id):
+        # filter through cart items by user id [v]
+        # prepare order and retrieve order_id [v]
+        # add items to order_details with order_id [v]
+        # and remove the items from cart [v]
+        # update status (optional)
+        # need rectification and debugging
+        cart = self.getCartByUserId(user_id=user_id)
+        order_details = self.getOrderDetails()
+        order = self.getOrder()
+        buy_timestamp = datetime.now()
+        query = db.insert(order).values(user_id=user_id, date_of_purchase=buy_timestamp)
+        self.connection.execute(query)
+        order_id = self.retrieveOrderId(user_id=user_id)
+        for i in cart:
+            query = db.insert(order_details).values(order_id = order_id, item_id = i["item_id"], quantity = i["quantity"])
+            self.connection.execute(query)
+        self.DeleteAllCartItems(user_id=user_id)
+        # change status to Active 
+        self.ChangeOrderStatus(user_id=user_id,status_id=1)
+        return self.success_message
+
+    def ChangeOrderStatus(self,user_id,status_id):
+        order = self.getOrder()
+        query = db.update(order).values(status_id = status_id).where(order.c.user_id == user_id)
+        self.connection.execute(query)
+        return self.success_message 
 
     # Additional Functions
     def getProductDetails(self):
@@ -193,6 +267,36 @@ class PurplePandaDB:
         product_info = db.Table('product_info',self.metadata,autoload=True, autoload_with=self.engine)
         return product_info
 
+    def getCart(self):
+        cart = db.Table('cart',self.metadata,autoload=True, autoload_with=self.engine)
+        return cart 
+
+    def getCartByUserId(self,user_id):
+        ResultSet = []
+        cart = self.getCart()
+        query = db.select([cart]).where(cart.c.user_id == user_id)
+        results = self.connection.execute(query) 
+        for row in results:
+            ResultSet.append(row._asdict())
+        return ResultSet 
+
+    def getOrder(self):
+        order = db.Table('orders',self.metadata,autoload=True, autoload_with=self.engine)
+        return order 
+    
+    def getOrderDetails(self):
+        order_details = db.Table('order_details',self.metadata,autoload=True, autoload_with=self.engine)
+        return order_details
+
+    def retrieveOrderId(self,user_id):
+        ResultSet = []
+        order = self.getOrder()
+        query = db.select([order.c.order_id]).where(order.c.user_id == user_id)
+        results = self.connection.execute(query)
+        for row in results:
+            ResultSet.append(row._asdict())
+        return ResultSet[0]['order_id']
+
     def viewKeysforProductDetails(self):
         try:
             product_details = self.getProductDetails()
@@ -200,6 +304,15 @@ class PurplePandaDB:
         except:
             print("Some Error Occured")
             return False
+    
+    def getAllProductName(self):
+        ResultSet = []
+        product_details = self.getProductDetails()
+        query = db.select([product_details.c.product_name])
+        results = self.connection.execute(query)
+        for item in results:
+            ResultSet.append(item[0])
+        return ResultSet
 
     def checkIfItemIDExists(self,item_id):
         product_info = self.getProductInfo()
@@ -210,7 +323,16 @@ class PurplePandaDB:
             return False 
         else:
             return True 
-            
+
+    def DeleteAllCartItems(self, user_id):
+        print("Reached Delete Cart Items")
+        cart_items = self.getCartByUserId(user_id=user_id)
+        cart = self.getCart()
+        for i in cart_items:
+            query = db.delete(cart).where(cart.c.item_id == i["item_id"])
+            self.connection.execute(query)
+                    
+
     def checkIfProductIDExists(self,product_id,table=None):
         query = db.select([table.c.product_id]).where(table.c.product_id == product_id)
         result = self.connection.execute(query).fetchall()
