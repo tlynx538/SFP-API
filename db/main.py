@@ -2,6 +2,7 @@
  TODO:
     [Inventory, Cart and Orders]
     1. Fix Exception Messages 
+    2. Fix Edge Cases 
 '''
 import sqlalchemy as db 
 from datetime import datetime 
@@ -29,6 +30,19 @@ class PurplePandaDB:
             for i in result:
                 ResultSet.append(i._asdict())
             return ResultSet
+        except:
+            return self.error_message
+
+    def SelectItemsByCategory(self,product_gender,product_category):
+        try:
+            ResultSet = []
+            product_details = self.getProductDetails()
+            product_info = self.getProductInfo()
+            query = db.select([product_details,product_info]).where((product_details.c.product_id == product_info.c.product_id) & (product_details.c.product_gender == product_gender) & (product_details.c.product_category == product_category) & (product_info.c.primary == True))
+            result = self.connection.execute(query)
+            for i in result: 
+                ResultSet.append(i._asdict())
+            return ResultSet 
         except:
             return self.error_message
 
@@ -185,7 +199,7 @@ class PurplePandaDB:
             ResultSet = []
             product_info = self.getProductInfo()
             product_details = self.getProductDetails()
-            query = db.select([product_details.c.product_name,product_details.c.product_desc,product_info.c.item_size,product_info.c.color,product_details.c.product_gender,product_details.c.product_category,product_info.c.quantity,product_info.c.discount,product_info.c.price])
+            query = db.select([product_details.c.product_name,product_details.c.product_desc,product_info.c.item_size,product_info.c.color,product_details.c.product_gender,product_details.c.product_category,product_info.c.quantity,product_info.c.discount,product_info.c.price,product_info.c.rating])
             query = query.select_from(product_details.join(product_info, product_details.c.product_id == product_info.c.product_id))
             results = self.connection.execute(query)
             for row in results:
@@ -332,7 +346,6 @@ class PurplePandaDB:
             query = db.delete(cart).where(cart.c.item_id == i["item_id"])
             self.connection.execute(query)
                     
-
     def checkIfProductIDExists(self,product_id,table=None):
         query = db.select([table.c.product_id]).where(table.c.product_id == product_id)
         result = self.connection.execute(query).fetchall()

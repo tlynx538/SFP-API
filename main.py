@@ -1,8 +1,20 @@
 from fastapi import FastAPI
 from db.main import PurplePandaDB
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+origins = [
+    "http://localhost:3000",
+]
+
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # Initialising the Database Connection as well as SQLAlchemy object
 obj = PurplePandaDB()
 
@@ -41,6 +53,10 @@ class UpdateCart(BaseModel):
 class CreateOrder(BaseModel):
     user_id : int
 
+class ChangeOrderStatus(BaseModel):
+    user_id : int 
+    status_id :int 
+
 # defining for inventory route
 inventory_api_route = "/api/inventory/"
 
@@ -48,6 +64,11 @@ inventory_api_route = "/api/inventory/"
 def product_list():
     products = obj.SelectProducts()
     return products
+
+@app.get(inventory_api_route+'products/'+'{gender}/'+'{category}/')
+def product_list(category, gender): 
+    products = obj.SelectItemsByCategory(product_category=category,product_gender=gender)
+    return products 
 
 @app.post(inventory_api_route+'add/product')
 def add_product(prod: AddProduct):
@@ -85,4 +106,7 @@ def update_item_cart(cart: UpdateCart):
 def create_order(order: CreateOrder):
     return obj.CreateOrder(user_id=order.user_id)
 
+@app.post(inventory_api_route+'status/order')
+def order_status_change(order: ChangeOrderStatus):
+    return obj.ChangeOrderStatus(user_id=order.user_id, status_id=order.status_id)
 
