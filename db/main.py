@@ -224,7 +224,9 @@ class PurplePandaDB:
         ResultSet = []
         # check if user id exists
         cart = self.getCart()
-        query = db.select([cart]).where(cart.c.user_id == user_id)
+        product_info = self.getProductInfo()
+        product_details = self.getProductDetails()
+        query = db.select([cart,product_info,product_details]).join(product_info, product_info.c.item_id == cart.c.item_id).join(product_details, product_details.c.product_id == product_info.c.product_id).where(cart.c.user_id == user_id)
         print(query)
         results = self.connection.execute(query)
         for row in results:
@@ -354,4 +356,7 @@ class PurplePandaDB:
             return False 
         else:
             return True
+
+    def checkIfQuantityIsPresent(self, item_id,quantity):
+        pass 
 

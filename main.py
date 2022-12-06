@@ -90,9 +90,9 @@ def delete_product(product_id):
 def add_to_cart(cart: AddCart):
     return obj.AddToCart(item_id=cart.item_id, user_id=cart.user_id, quantity= cart.quantity)
 
-@app.get(inventory_api_route+'view/cart')
-def view_cart(cart: ViewCart):
-    return obj.ViewCart(user_id=cart.user_id)
+@app.get(inventory_api_route+'view/cart/'+'{user_id}')
+def view_cart(user_id):
+    return obj.ViewCart(user_id=user_id)
 
 @app.get(inventory_api_route+'delete/cart')
 def delete_item_cart(cart: DeleteCart):
