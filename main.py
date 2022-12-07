@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from db.main import PurplePandaDB
+from db.main import StoreFrontDB
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 origins = [
@@ -16,7 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 # Initialising the Database Connection as well as SQLAlchemy object
-obj = PurplePandaDB()
+obj = StoreFrontDB()
 
 # Create Models for Request Body
 class AddProduct(BaseModel):
@@ -94,7 +94,7 @@ def add_to_cart(cart: AddCart):
 def view_cart(user_id):
     return obj.ViewCart(user_id=user_id)
 
-@app.get(inventory_api_route+'delete/cart')
+@app.post(inventory_api_route+'delete/cart')
 def delete_item_cart(cart: DeleteCart):
     return obj.DeleteItemFromCart(item_id=cart.item_id, user_id=cart.user_id)
 

@@ -7,7 +7,7 @@
 import sqlalchemy as db 
 from datetime import datetime 
 
-class PurplePandaDB:
+class StoreFrontDB:
     error_message = {"status": "ERROR","message": "An Error Occured"}
     success_message = {"status": "OK","message": "Row Updated Successfully"}
     def __init__(self):
@@ -38,7 +38,7 @@ class PurplePandaDB:
             ResultSet = []
             product_details = self.getProductDetails()
             product_info = self.getProductInfo()
-            query = db.select([product_details,product_info]).where((product_details.c.product_id == product_info.c.product_id) & (product_details.c.product_gender == product_gender) & (product_details.c.product_category == product_category) & (product_info.c.primary == True))
+            query = db.select([product_details,product_info]).where((product_details.c.product_id == product_info.c.product_id) & (product_details.c.product_gender == product_gender) & (product_details.c.product_category == product_category) & (product_info.c.primary == True) & (product_info.c.quantity > 0))
             result = self.connection.execute(query)
             for i in result: 
                 ResultSet.append(i._asdict())
@@ -209,14 +209,20 @@ class PurplePandaDB:
             return self.error_message
     
     def AddToCart(self,quantity,item_id,user_id=None):
-        # Check if quantity exists
-        # Reduce and Update the Quantity in product_info 
-        # Implement user table and add to condition
         cart = self.getCart()
         if(self.checkIfItemIDExists(item_id=item_id)):
-            query = db.insert(cart).values(quantity=quantity,item_id=item_id,user_id=user_id)
-            self.connection.execute(query)
-            return self.success_message
+            quantity_available = self.checkIfQuantityIsPresent(item_id=item_id)
+            if(quantity_available - quantity >= 0):
+                if(self.checkIfItemIDExistsinCart(item_id=item_id)):
+                    self.UpdateQuantityFromCartItem(item_id=item_id, quantity=quantity,user_id=user_id)
+                else:
+                    query = db.insert(cart).values(quantity=quantity,item_id=item_id,user_id=user_id)
+                    self.connection.execute(query)
+                self.UpdateItemFromProductInfo(quantity=(quantity_available-quantity), item_id=item_id)
+
+                return {"status": "SUCCESS","message": "Item Added To Cart"}
+            else: 
+                return {"status": "ERROR","message": "Quantity is unavailable"}
         else:
             return self.error_message
 
@@ -227,7 +233,6 @@ class PurplePandaDB:
         product_info = self.getProductInfo()
         product_details = self.getProductDetails()
         query = db.select([cart,product_info,product_details]).join(product_info, product_info.c.item_id == cart.c.item_id).join(product_details, product_details.c.product_id == product_info.c.product_id).where(cart.c.user_id == user_id)
-        print(query)
         results = self.connection.execute(query)
         for row in results:
             ResultSet.append(row._asdict())
@@ -235,6 +240,8 @@ class PurplePandaDB:
 
     def DeleteItemFromCart(self, item_id, user_id):
         cart = self.getCart()
+        quantity = self.getQuantityFromCart(item_id=item_id, user_id=user_id)
+        self.UpdateItemFromProductInfo(item_id=item_id, quantity=quantity)
         query = db.delete(cart).where((cart.c.user_id == user_id) & (cart.c.item_id == item_id))
         self.connection.execute(query)
         return self.success_message
@@ -338,7 +345,17 @@ class PurplePandaDB:
             print("Item ID does not exist")
             return False 
         else:
-            return True 
+            return True
+
+    def checkIfItemIDExistsinCart(self,item_id):
+        cart = self.getCart()
+        query = db.select([cart.c.item_id]).where(cart.c.item_id == item_id)
+        result = self.connection.execute(query).fetchall()
+        if(len(result) == 0):
+            print("Item ID does not exist")
+            return False 
+        else:
+            return True  
 
     def DeleteAllCartItems(self, user_id):
         print("Reached Delete Cart Items")
@@ -357,6 +374,15 @@ class PurplePandaDB:
         else:
             return True
 
-    def checkIfQuantityIsPresent(self, item_id,quantity):
-        pass 
+    def checkIfQuantityIsPresent(self, item_id):
+        product_info = self.getProductInfo()
+        query = db.select([product_info.c.quantity]).where(product_info.c.item_id == item_id)
+        result = self.connection.execute(query).fetchall()
+        return result[0][0]
+
+    def getQuantityFromCart(self, item_id, user_id):
+        cart = self.getCart()
+        query = db.select([cart.c.quantity]).where((cart.c.item_id == item_id) & (cart.c.user_id == user_id))
+        result = self.connection.execute(query).fetchall()
+        return result[0][0]
 
